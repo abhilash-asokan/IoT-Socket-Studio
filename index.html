@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Socket Studio</title>
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <link rel="stylesheet" href="static/style.css">
+</head>
+
+<body>
+    <div class="toolbar">
+        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="disconnectBtn" class="btn danger" disabled>Disconnect</button>
+        <button id="clearBtn" class="btn">Clear</button>
+        <label class="toggle"><input type="checkbox" id="autoscroll" checked> Auto‑scroll</label>
+        <label class="toggle"><input type="checkbox" id="wrap"> Wrap</label>
+        <div class="spacer"></div>
+        <div class="status" id="status">disconnected</div>
+    </div>
+
+    <div class="workspace">
+        <div class="editor" id="editor"></div>
+        <aside class="panel">
+            <h3>Last Message</h3>
+            <div id="lastJson" class="json muted">(none)</div>
+            <h3>Send (optional)</h3>
+            <div class="row"><label>Message</label><textarea id="outgoing" placeholder='{"ping": true}'
+                    rows="20"></textarea>
+            </div>
+            <div class="row"><label></label><button id="sendBtn" class="btn success">Send</button></div>
+            <div class="footer">ws://localhost:8080</div>
+        </aside>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const editorEl = document.getElementById('editor');
+        const lastJsonEl = document.getElementById('lastJson');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const autoscroll = document.getElementById('autoscroll');
+        const wrap = document.getElementById('wrap');
+        const outgoing = document.getElementById('outgoing');
+        const sendBtn = document.getElementById('sendBtn');
+
+        let ws = null;
+
+        function setStatus(s, color) { statusEl.textContent = s; if (color) statusEl.style.color = color; }
+
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+            // Escape HTML first
+            let s = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // 1) Highlight strings first
+            s = s.replace(/"(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"/g, '<span class="str">$&</span>');
+
+            // 2) Numbers
+            s = s.replace(/(^|[^\w])(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g, '$1<span class="num">$2</span>');
+
+            // 3) Booleans and null
+            s = s.replace(/\b(true|false)\b/g, '<span class="bool">$1</span>');
+            s = s.replace(/\bnull\b/g, '<span class="null">null</span>');
+
+            // 4) Keys: wrap string tokens that are immediately followed by a colon
+            s = s.replace(/<span class=\"str\">(\"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\\"])*\")<\/span>(\s*:)/g, '<span class="key">$1</span>$2');
+
+            return s;
+        }
+
+        function logLine(prefix, data) {
+            const line = document.createElement('div');
+            line.className = 'line';
+            const time = new Date().toLocaleTimeString();
+            const badge = `<span class="badge">${time} ${prefix}</span>`;
+
+            let payloadHTML = '';
+            try {
+                const obj = typeof data === 'string' ? JSON.parse(data) : data;
+                payloadHTML = `<div class="payload json">${syntaxHighlight(JSON.stringify(obj, null, 2))}</div>`;
+            } catch (_) {
+                const safe = String(data)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                payloadHTML = `<div class="payload">${safe}</div>`;
+            }
+
+            line.innerHTML = badge + payloadHTML;
+            editorEl.appendChild(line);
+            if (autoscroll.checked) editorEl.scrollTop = editorEl.scrollHeight;
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) return;
+            ws = new WebSocket('ws://localhost:8080');
+            setStatus('connecting…', '#fbbf24');
+            ws.onopen = () => { setStatus('connected', '#22c55e'); connectBtn.disabled = true; disconnectBtn.disabled = false; logLine('[open]', ''); };
+            ws.onmessage = (e) => {
+                logLine('[msg]', e.data);
+                try {
+                    const obj = JSON.parse(e.data);
+                    lastJsonEl.classList.remove('muted');
+                    lastJsonEl.innerHTML = syntaxHighlight(obj);
+                } catch (_) {
+                    lastJsonEl.classList.remove('muted');
+                    lastJsonEl.textContent = e.data;
+                }
+            };
+            ws.onerror = (e) => { logLine('[error]', e.message || e.type); };
+            ws.onclose = () => { setStatus('disconnected', '#94a3b8'); connectBtn.disabled = false; disconnectBtn.disabled = true; logLine('[close]', ''); };
+        }
+
+        function disconnect() { if (ws) { ws.close(); } }
+
+        function clearEditor() { editorEl.innerHTML = ''; lastJsonEl.textContent = '(none)'; lastJsonEl.classList.add('muted'); }
+
+        connectBtn.onclick = connect;
+        disconnectBtn.onclick = disconnect;
+        clearBtn.onclick = clearEditor;
+        sendBtn.onclick = () => {
+            const text = outgoing.value.trim();
+            if (!text) return;
+            try {
+                const obj = JSON.parse(text);
+                ws?.send(JSON.stringify(obj));
+                logLine('[send]', JSON.stringify(obj));
+            } catch (_) {
+                ws?.send(text);
+                logLine('[send]', text);
+            }
+        };
+
+        setWrap();
+        wrap.onchange = setWrap;
+
+        // auto-connect on load
+        connect();
+    </script>
+</body>
+
+</html>
