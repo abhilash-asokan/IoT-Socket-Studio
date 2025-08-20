@@ -164,9 +164,14 @@
 
         function connect() {
             if (ws && ws.readyState === WebSocket.OPEN) return;
-            ws = new WebSocket('ws://localhost:8080');
+            ws = new WebSocket('ws://localhost:8080/ws?assetId=demo&interval=5000&keys=temperature,humidity&count=1');
             setStatus('connecting…', '#fbbf24');
-            ws.onopen = () => { setStatus('Connected', '#22c55e'); connectBtn.disabled = true; disconnectBtn.disabled = false; logLine('[open]', ''); };
+            ws.onopen = () => {
+                setStatus('Connected', '#22c55e');
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                logLine('[open]', '');
+            };
             ws.onmessage = (e) => {
                 logLine('[msg]', e.data);
                 try {
@@ -178,8 +183,15 @@
                     lastJsonEl.textContent = e.data;
                 }
             };
-            ws.onerror = (e) => { logLine('[error]', e.message || e.type); };
-            ws.onclose = () => { setStatus('Disconnected', '#94a3b8'); connectBtn.disabled = false; disconnectBtn.disabled = true; logLine('[close]', ''); };
+            ws.onerror = (e) => {
+                logLine('[error]', e.message || e.type);
+            };
+            ws.onclose = () => {
+                setStatus('Disconnected', '#94a3b8');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                logLine('[close]', '');
+            };
         }
 
         function disconnect() { if (ws) { ws.close(); } }
@@ -244,6 +256,15 @@
 
         document.getElementById('ws-url').textContent = `ws://${location.host}/ws`;
         document.getElementById('ws-example').textContent = `const ws = new WebSocket("ws://${location.host}/ws?assetId=MyAsset&keys=temperature,humidity");`;
+
+        function setWrap() {
+            if (wrap.checked) {
+                editorEl.classList.add('wrap');
+            } else {
+                editorEl.classList.remove('wrap');
+            }
+        }
+
         setWrap();
         wrap.onchange = setWrap;
 

@@ -5,7 +5,7 @@ const cors = require('cors');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
-const DEFAULT_INTERVAL = Number(process.env.DEFAULT_INTERVAL || 1500);
+const DEFAULT_INTERVAL = Number(process.env.DEFAULT_INTERVAL || 5000);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
     .map(s => s.trim())
