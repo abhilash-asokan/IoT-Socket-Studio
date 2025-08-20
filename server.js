@@ -81,10 +81,47 @@ app.disable('x-powered-by');
 app.get('/healthz', (req, res) => res.send('ok'));
 app.get('/version', (req, res) => res.json({ version: '1.0.0' }));
 app.get('/', (req, res) => {
+    const q = req.query || {};
+    const assetId = (q.assetId || '02i9K000005B4tcQAC').toString();
+    const interval = Math.max(200, Number(q.interval || DEFAULT_INTERVAL));
+    const keysParam = (q.keys || 'temperature,humidity').toString();
+    const count = Math.min(5, Math.max(1, Number(q.count || 1)));
+
+    // sanitize keys list against supported KEY_NAMES
+    const keys = keysParam
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .filter(k => KEY_NAMES.includes(k));
+    const keysStr = keys.length ? keys.join(',') : 'temperature,humidity';
+
+    const wsUrl = `ws://${req.headers.host}/ws?assetId=${encodeURIComponent(assetId)}&interval=${interval}&keys=${encodeURIComponent(keysStr)}&count=${count}`;
+
     res.type('text').send(
         `IoT Socket Studio – Mock WebSocket\n` +
-        `Connect: ws://${req.headers.host}/ws?assetId=02i9K000005B4tcQAC&interval=${DEFAULT_INTERVAL}&keys=temperature,humidity\n`
+        `Connect: ${wsUrl}\n` +
+        `\n` +
+        `You can customize by adding query params to this page URL, e.g.:\n` +
+        `  /?assetId=MyAsset42&keys=temperature,voltage&interval=750&count=2\n` +
+        `\n` +
+        `Supported keys: ${KEY_NAMES.join(', ')}\n` +
+        `Min interval: 200 ms, Max count: 5\n`
     );
+});
+
+app.get('/preview', (req, res) => {
+    const q = req.query || {};
+    const assetId = (q.assetId || '02i9K000005B4tcQAC').toString();
+    const keysParam = (q.keys || KEY_NAMES.join(',')).toString();
+    const keys = keysParam
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .filter(k => KEY_NAMES.includes(k));
+    const count = Math.min(5, Math.max(1, Number(q.count || 1)));
+
+    const result = Array.from({ length: count }, () => buildReading({ assetId, keys: keys.length ? keys : KEY_NAMES }));
+    res.json(count === 1 ? result[0] : result);
 });
 
 const server = http.createServer(app);

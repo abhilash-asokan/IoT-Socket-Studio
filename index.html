@@ -36,7 +36,7 @@
                     <button id="mockBtn" class="btn warn">Generate Telemetry</button>
                 </div>
             </div>
-            <div class="footer">ws://localhost:8080</div>
+            <div class="footer" id="footer"></div>
         </aside>
     </div>
 
@@ -181,6 +181,7 @@
             outgoing.value = JSON.stringify(createMockReadingUI(), null, 2);
         };
 
+        document.getElementById('footer').textContent = `ws://${location.host}`;
         setWrap();
         wrap.onchange = setWrap;
 
