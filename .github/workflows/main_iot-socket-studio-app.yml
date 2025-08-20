@@ -52,4 +52,4 @@ jobs:
           app-name: 'iot-socket-studio-app'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_55CD8A347AB14CD28B29254DA2166B4F }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FB93E8F61D634C25ADC20834C1320CE6 }}
