@@ -7,9 +7,57 @@
     <title>IoT Socket Studio</title>
     <link rel="icon" type="image/x-icon" href="static/favicon.ico">
     <link rel="stylesheet" href="static/style.css">
+
+    <!-- SEO: Meta Description & Keywords -->
+    <meta name="description"
+        content="IoT Socket Studio is a mock WebSocket telemetry server and viewer. Generate and stream realistic IoT readings (temperature, humidity, etc.) for rapid prototyping and testing.">
+    <meta name="keywords" content="websocket, mock server, iot, telemetry, simulator, testing, realtime, ws, wss">
+    <meta name="robots" content="index,follow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content="IoT Socket Studio – Mock WebSocket Telemetry Server">
+    <meta property="og:description"
+        content="Public WebSocket endpoint for streaming mock IoT telemetry. Connect from browser, CLI, or Node.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="/">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="IoT Socket Studio – Mock WebSocket Telemetry Server">
+    <meta name="twitter:description"
+        content="Public WebSocket endpoint for streaming mock IoT telemetry. Connect from browser, CLI, or Node.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="/">
+
+    <!-- Accessibility helper for hidden headings -->
+    <style>
+        .visually-hidden {
+            position: absolute !important;
+            height: 1px;
+            width: 1px;
+            overflow: hidden;
+            clip: rect(1px, 1px, 1px, 1px);
+            white-space: nowrap;
+        }
+    </style>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "IoT Socket Studio",
+      "applicationCategory": "DeveloperApplication",
+      "description": "Mock WebSocket telemetry server and viewer for IoT testing.",
+      "operatingSystem": "Any",
+      "url": "/"
+    }
+    </script>
 </head>
 
 <body>
+    <h1 class="visually-hidden">IoT Socket Studio – Mock WebSocket Telemetry Server</h1>
     <div class="toolbar">
         <button id="connectBtn" class="btn primary">Connect</button>
         <button id="disconnectBtn" class="btn danger" disabled>Disconnect</button>
@@ -17,7 +65,7 @@
         <label class="toggle"><input type="checkbox" id="autoscroll" checked> Auto‑scroll</label>
         <label class="toggle"><input type="checkbox" id="wrap"> Wrap</label>
         <div class="spacer"></div>
-        <div class="status" id="status">disconnected</div>
+        <div class="status" id="status">Disconnected</div>
     </div>
 
     <div class="workspace">
@@ -118,7 +166,7 @@
             if (ws && ws.readyState === WebSocket.OPEN) return;
             ws = new WebSocket('ws://localhost:8080');
             setStatus('connecting…', '#fbbf24');
-            ws.onopen = () => { setStatus('connected', '#22c55e'); connectBtn.disabled = true; disconnectBtn.disabled = false; logLine('[open]', ''); };
+            ws.onopen = () => { setStatus('Connected', '#22c55e'); connectBtn.disabled = true; disconnectBtn.disabled = false; logLine('[open]', ''); };
             ws.onmessage = (e) => {
                 logLine('[msg]', e.data);
                 try {
@@ -131,7 +179,7 @@
                 }
             };
             ws.onerror = (e) => { logLine('[error]', e.message || e.type); };
-            ws.onclose = () => { setStatus('disconnected', '#94a3b8'); connectBtn.disabled = false; disconnectBtn.disabled = true; logLine('[close]', ''); };
+            ws.onclose = () => { setStatus('Disconnected', '#94a3b8'); connectBtn.disabled = false; disconnectBtn.disabled = true; logLine('[close]', ''); };
         }
 
         function disconnect() { if (ws) { ws.close(); } }
