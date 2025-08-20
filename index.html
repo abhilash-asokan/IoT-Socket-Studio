@@ -29,7 +29,13 @@
             <div class="row"><label>Message</label><textarea id="outgoing" placeholder='{"ping": true}'
                     rows="20"></textarea>
             </div>
-            <div class="row"><label></label><button id="sendBtn" class="btn success">Send</button></div>
+            <div class="row">
+                <label></label>
+                <div class="actions">
+                    <button id="sendBtn" class="btn success">Send</button>
+                    <button id="mockBtn" class="btn warn">Generate Telemetry</button>
+                </div>
+            </div>
             <div class="footer">ws://localhost:8080</div>
         </aside>
     </div>
@@ -45,6 +51,7 @@
         const wrap = document.getElementById('wrap');
         const outgoing = document.getElementById('outgoing');
         const sendBtn = document.getElementById('sendBtn');
+        const mockBtn = document.getElementById('mockBtn');
 
         let ws = null;
 
@@ -132,6 +139,46 @@
                 ws?.send(text);
                 logLine('[send]', text);
             }
+        };
+
+        const UI_KEY_NAMES = ['temperature', 'humidity', 'pressure', 'vibration', 'voltage'];
+        function uiUnitFor(name) {
+            switch (name) {
+                case 'temperature': return '°C';
+                case 'humidity': return '%';
+                case 'pressure': return 'hPa';
+                case 'vibration': return 'mm/s';
+                case 'voltage': return 'V';
+                default: return '';
+            }
+        }
+        function uiGenerateValue(name) {
+            switch (name) {
+                case 'temperature': return (20 + Math.random() * 10).toFixed(2);
+                case 'humidity': return (40 + Math.random() * 60).toFixed(2);
+                case 'pressure': return (900 + Math.random() * 200).toFixed(2);
+                case 'vibration': return (0 + Math.random() * 10).toFixed(2);
+                case 'voltage': return (200 + Math.random() * 50).toFixed(2);
+                default: return Math.random().toFixed(2);
+            }
+        }
+        function createMockReadingUI() {
+            const key = UI_KEY_NAMES[Math.floor(Math.random() * UI_KEY_NAMES.length)];
+            return {
+                assetId: "02i9K000005B4tcQAC",
+                telemetry: [{
+                    value: Number(uiGenerateValue(key)),
+                    name: key,
+                    type: "number",
+                    unit: uiUnitFor(key),
+                    timestamp: Date.now()
+                }],
+                keyName: key
+            };
+        }
+
+        mockBtn.onclick = () => {
+            outgoing.value = JSON.stringify(createMockReadingUI(), null, 2);
         };
 
         setWrap();

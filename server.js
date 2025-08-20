@@ -3,7 +3,7 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
-const INTERVAL_MS = Number(process.env.INTERVAL_MS || 15000); // 1s default
+const INTERVAL_MS = Number(process.env.INTERVAL_MS || 10000); // 1s default
 
 const server = http.createServer();
 const wss = new WebSocketServer({ server });
