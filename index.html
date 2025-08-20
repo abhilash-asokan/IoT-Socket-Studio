@@ -64,6 +64,9 @@
         <button id="clearBtn" class="btn">Clear</button>
         <label class="toggle"><input type="checkbox" id="autoscroll" checked> Auto‑scroll</label>
         <label class="toggle"><input type="checkbox" id="wrap"> Wrap</label>
+        <label class="toggle">Interval (ms): <input type="number" id="intervalInput" value="5000" min="200" step="100"
+                style="width: 80px;" /></label>
+        <button id="applyIntervalBtn" class="btn primary">Apply</button>
         <div class="spacer"></div>
         <div class="status" id="status">Disconnected</div>
     </div>
@@ -113,6 +116,8 @@
         const outgoing = document.getElementById('outgoing');
         const sendBtn = document.getElementById('sendBtn');
         const mockBtn = document.getElementById('mockBtn');
+        const intervalInput = document.getElementById('intervalInput');
+        const applyIntervalBtn = document.getElementById('applyIntervalBtn');
 
         let ws = null;
 
@@ -164,7 +169,8 @@
 
         function connect() {
             if (ws && ws.readyState === WebSocket.OPEN) return;
-            ws = new WebSocket('ws://localhost:8080/ws?assetId=demo&interval=5000&keys=temperature,humidity&count=1');
+            const interval = Math.max(200, Number(intervalInput.value || 5000));
+            ws = new WebSocket(`ws://localhost:8080/ws?assetId=demo&interval=${interval}&keys=temperature,humidity&count=1`);
             setStatus('connecting…', '#fbbf24');
             ws.onopen = () => {
                 setStatus('Connected', '#22c55e');
@@ -212,6 +218,12 @@
                 ws?.send(text);
                 logLine('[send]', text);
             }
+        };
+
+        applyIntervalBtn.onclick = () => {
+            clearEditor();
+            disconnect();
+            setTimeout(connect, 100);
         };
 
         const UI_KEY_NAMES = ['temperature', 'humidity', 'pressure', 'vibration', 'voltage'];
