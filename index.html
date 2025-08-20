@@ -36,7 +36,20 @@
                     <button id="mockBtn" class="btn warn">Generate Telemetry</button>
                 </div>
             </div>
-            <div class="footer" id="footer"></div>
+            <div class="footer" id="footer">
+                <p><strong>How to connect to IoT Socket Studio:</strong></p>
+                <p>You can connect using any WebSocket client or directly from your frontend app.</p>
+                <p><strong>Base URL:</strong></p>
+                <code id="ws-url"></code>
+                <p><strong>Example (JavaScript):</strong></p>
+                <code id="ws-example"></code>
+                <p>Parameters:</p>
+                <ul>
+                    <li><code>assetId</code> – The unique ID of the asset (e.g., <em>02i9K000005B4tcQAC</em>).</li>
+                    <li><code>keys</code> – Comma‑separated telemetry names (e.g., <em>temperature,humidity</em>).</li>
+                    <li><code>interval</code> (optional) – Frequency in milliseconds to receive updates.</li>
+                </ul>
+            </div>
         </aside>
     </div>
 
@@ -181,7 +194,8 @@
             outgoing.value = JSON.stringify(createMockReadingUI(), null, 2);
         };
 
-        document.getElementById('footer').textContent = `ws://${location.host}`;
+        document.getElementById('ws-url').textContent = `ws://${location.host}/ws`;
+        document.getElementById('ws-example').textContent = `const ws = new WebSocket("ws://${location.host}/ws?assetId=MyAsset&keys=temperature,humidity");`;
         setWrap();
         wrap.onchange = setWrap;
 
