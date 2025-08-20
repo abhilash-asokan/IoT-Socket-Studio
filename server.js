@@ -1,12 +1,15 @@
-// server.js
+// server.js (production-ready)
 const http = require('http');
+const express = require('express');
+const cors = require('cors');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
-const INTERVAL_MS = Number(process.env.INTERVAL_MS || 10000); // 1s default
-
-const server = http.createServer();
-const wss = new WebSocketServer({ server });
+const DEFAULT_INTERVAL = Number(process.env.DEFAULT_INTERVAL || 1500);
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
 // Simple mock generator — tweak as you like
 const KEY_NAMES = [
@@ -52,72 +55,111 @@ function generateValue(key) {
     }
 }
 
-function mockReading() {
-    const keyName = randomFrom(KEY_NAMES);
+function buildReading({ assetId, keys }) {
+    const keyName = randomFrom(keys);
     const value = generateValue(keyName);
     return {
-        assetId: '02i9K000005B4tcQAC',
+        assetId,
         telemetry: [
             {
-                value: value,
+                value,
                 name: keyName,
                 type: typeof value,
                 unit: unitFor(keyName),
-                timestamp: Date.now()
-            }
+                timestamp: Date.now(),
+            },
         ],
-        keyName: keyName
+        keyName,
     };
 }
 
-// Broadcast helper
-function broadcast(obj) {
-    const data = JSON.stringify(obj);
-    wss.clients.forEach((client) => {
-        if (client.readyState === client.OPEN) client.send(data);
-    });
-}
+// HTTP app (health, version, simple index)
+const app = express();
+app.use(cors());
+app.disable('x-powered-by');
 
-// Keepalive (helps some proxies)
-const KEEPALIVE_MS = 15000;
-function heartbeat() { this.isAlive = true; }
-
-wss.on('connection', (ws, req) => {
-    ws.isAlive = true;
-    ws.on('pong', heartbeat);
-    console.log('[WS] client connected from', req.socket.remoteAddress);
-    ws.send(JSON.stringify({ type: 'hello', msg: 'connected', intervalMs: INTERVAL_MS }));
+app.get('/healthz', (req, res) => res.send('ok'));
+app.get('/version', (req, res) => res.json({ version: '1.0.0' }));
+app.get('/', (req, res) => {
+    res.type('text').send(
+        `IoT Socket Studio – Mock WebSocket\n` +
+        `Connect: ws://${req.headers.host}/ws?assetId=02i9K000005B4tcQAC&interval=${DEFAULT_INTERVAL}&keys=temperature,humidity\n`
+    );
 });
 
-// Periodic broadcaster
-const interval = setInterval(() => {
-    broadcast(mockReading());
-}, INTERVAL_MS);
+const server = http.createServer(app);
 
-// Ping clients for keepalive + terminate dead sockets
-const pingTimer = setInterval(() => {
-    wss.clients.forEach((ws) => {
-        if (ws.isAlive === false) return ws.terminate();
-        ws.isAlive = false;
-        ws.ping();
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+function enforceOrigin(ws, req) {
+    if (!ALLOWED_ORIGINS.length) return true;
+    const origin = req.headers.origin || '';
+    if (ALLOWED_ORIGINS.includes(origin)) return true;
+    try { ws.close(1008, 'Origin not allowed'); } catch { }
+    return false;
+}
+
+wss.on('connection', (ws, req) => {
+    if (!enforceOrigin(ws, req)) return;
+
+    // Parse per-connection query params
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const interval = Math.max(200, Number(url.searchParams.get('interval') || DEFAULT_INTERVAL));
+    const assetId = url.searchParams.get('assetId') || '02i9K000005B4tcQAC';
+    const keys = (url.searchParams.get('keys') || KEY_NAMES.join(','))
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => KEY_NAMES.includes(s));
+    const count = Math.min(5, Math.max(1, Number(url.searchParams.get('count') || 1)));
+
+    ws.send(JSON.stringify({ type: 'hello', interval, assetId, keys, count }));
+
+    // Per-connection broadcaster
+    let closed = false;
+    const tick = () => {
+        if (closed || ws.readyState !== ws.OPEN) return;
+        for (let i = 0; i < count; i++) ws.send(JSON.stringify(buildReading({ assetId, keys })));
+    };
+    const intervalHandle = setInterval(tick, interval);
+
+    // Per-connection keepalive
+    ws.isAlive = true;
+    ws.on('pong', () => (ws.isAlive = true));
+    const keepaliveHandle = setInterval(() => {
+        if (!ws.isAlive) { try { ws.terminate(); } catch { } return; }
+        ws.isAlive = false; try { ws.ping(); } catch { }
+    }, 15000);
+
+    ws.on('message', (msg) => {
+        // Optional: echo or handle control messages
+        // ws.send(JSON.stringify({ type: 'echo', data: msg.toString() }));
     });
-}, KEEPALIVE_MS);
 
-wss.on('close', () => {
-    clearInterval(interval);
-    clearInterval(pingTimer);
+    ws.on('close', () => {
+        closed = true;
+        clearInterval(intervalHandle);
+        clearInterval(keepaliveHandle);
+    });
+    ws.on('error', () => {
+        closed = true;
+        clearInterval(intervalHandle);
+        clearInterval(keepaliveHandle);
+    });
 });
 
 server.listen(PORT, () => {
-    console.log(`WS server running at ws://localhost:${PORT} (interval ${INTERVAL_MS} ms)`);
+    console.log(`HTTP  : http://0.0.0.0:${PORT}`);
+    console.log(`WS    : ws://0.0.0.0:${PORT}/ws`);
+    console.log(`Default interval: ${DEFAULT_INTERVAL} ms`);
 });
 
 // Graceful shutdown
 function shutdown() {
     console.log('\nShutting down…');
-    clearInterval(interval);
-    clearInterval(pingTimer);
-    wss.close(() => server.close(() => process.exit(0)));
+    try {
+        wss.clients.forEach((ws) => { try { ws.terminate(); } catch { } });
+    } catch { }
+    server.close(() => process.exit(0));
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
